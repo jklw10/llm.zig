@@ -217,7 +217,7 @@ def write_fp32(tensor, file):
     file.write(tensor.detach().numpy().astype("float32").tobytes())
 
 def write_tensors(model_tensors, L, file):
-    write_fp32(model_tensors["transformer.wte.weight"], file) # (V, C)
+    write_fp32(model_tensors["transformer.wte.weight"], file)  # (V, C)
     write_fp32(model_tensors["transformer.wpe.weight"], file) # (T, C)
     for i in range(L): # (L, C)
         write_fp32(model_tensors[f"transformer.h.{i}.ln_1.weight"], file)
@@ -276,7 +276,10 @@ def write_state(model, x, y, logits, loss, filename):
     header[1] = 1 # run state version = 1
     header[2] = x.size(0) # batch size of the batch, B
     header[3] = x.size(1) # temporal extent of the batch, T
-    grads = {name: param.grad.cpu() for name, param in model.named_parameters()}
+    grads = {
+        name: (param.grad.cpu() if param.grad is not None else torch.zeros_like(param).cpu())
+        for name, param in model.named_parameters()
+    }   
     with open(filename, "wb") as file:
         # header
         file.write(header.numpy().tobytes())
@@ -404,7 +407,7 @@ if __name__ == "__main__":
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, fused=True)
     timings = []
-    torch.cuda.reset_peak_memory_stats()
+    torch.cuda.empty_cache()
     for i in range(args.num_iterations):
         t0 = time.time()
         logits, loss = model(x, y)
